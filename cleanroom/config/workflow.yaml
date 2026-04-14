@@ -1,0 +1,5 @@
+workflows:
+  - id: WF_SMS_SEND_V1
+    name: Send SMS
+    risk: HIGH
+    enabled: true
