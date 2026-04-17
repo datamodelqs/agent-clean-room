@@ -6,7 +6,7 @@ import yaml
 
 # Build absolute path to repo-root/config/workflows.yaml
 BASE_DIR = Path(__file__).resolve().parents[2]
-WORKFLOW_FILE = BASE_DIR / "config" / "workflows.yaml"
+WORKFLOW_FILE = BASE_DIR / "cleanroom" / "config" / "workflows.yaml"
 
 
 def load_workflows():
