@@ -6,9 +6,17 @@ from fastapi import FastAPI, HTTPException
 from cleanroom.core.registry import get_workflow, load_workflows
 from cleanroom.models.workflow import WorkflowStartRequest
 
-app = FastAPI()
+# TinyDB persistence
 
-REQUESTS = {}
+from cleanroom.store.tinydb_store import (
+    save_request,
+    get_request as db_get_request,
+    list_requests as db_list_requests,
+    update_request,
+
+)
+
+app = FastAPI()
 
 
 @app.get("/")
@@ -54,7 +62,7 @@ def start_workflow(request: WorkflowStartRequest):
         "created_at": datetime.now(timezone.utc).isoformat(),
     }
 
-    REQUESTS[request_id] = request_record
+    save_request(request_record)
 
     return {
         "status": "pending_approval",
@@ -65,25 +73,30 @@ def start_workflow(request: WorkflowStartRequest):
 
 @app.get("/v1/requests")
 def list_requests():
-    return {"requests": list(REQUESTS.values())}
+    return {"requests": db_list_requests()}
 
 
 @app.get("/v1/requests/{request_id}")
 def get_request(request_id: str):
-    request_record = REQUESTS.get(request_id)
+    request_record = db_get_request(request_id)
 
     if not request_record:
-        raise HTTPException(status_code=404, detail="request not found")
+        raise HTTPException(
+            status_code=404,
+            detail="request not found"
+        )
 
     return request_record
-
-
 @app.post("/v1/requests/{request_id}/approve")
 def approve_request(request_id: str):
-    request_record = REQUESTS.get(request_id)
+
+    request_record = db_get_request(request_id)
 
     if not request_record:
-        raise HTTPException(status_code=404, detail="request not found")
+        raise HTTPException(
+            status_code=404,
+            detail="request not found"
+        )
 
     if request_record["status"] != "PENDING_APPROVAL":
         return {
@@ -93,22 +106,29 @@ def approve_request(request_id: str):
             "current_status": request_record["status"],
         }
 
-    request_record["status"] = "APPROVED"
-    request_record["approved_at"] = datetime.now(timezone.utc).isoformat()
+    update_request(
+        request_id,
+        {
+            "status": "APPROVED",
+            "approved_at": datetime.now(timezone.utc).isoformat(),
+        },
+    )
 
     return {
         "status": "approved",
         "request_id": request_id,
         "workflow_id": request_record["workflow_id"],
     }
-
-
 @app.post("/v1/requests/{request_id}/deny")
 def deny_request(request_id: str):
-    request_record = REQUESTS.get(request_id)
+
+    request_record = db_get_request(request_id)
 
     if not request_record:
-        raise HTTPException(status_code=404, detail="request not found")
+        raise HTTPException(
+            status_code=404,
+            detail="request not found"
+        )
 
     if request_record["status"] != "PENDING_APPROVAL":
         return {
@@ -118,8 +138,13 @@ def deny_request(request_id: str):
             "current_status": request_record["status"],
         }
 
-    request_record["status"] = "DENIED"
-    request_record["denied_at"] = datetime.now(timezone.utc).isoformat()
+    update_request(
+        request_id,
+        {
+            "status": "DENIED",
+            "denied_at": datetime.now(timezone.utc).isoformat(),
+        },
+    )
 
     return {
         "status": "denied",
